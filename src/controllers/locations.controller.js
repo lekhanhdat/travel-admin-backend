@@ -1,4 +1,4 @@
-const nocodbService = require('../services/nocodb.service');
+﻿const nocodbService = require('../services/nocodb.service');
 const transformService = require('../services/transform.service');
 
 // Calculate average rating from reviews
@@ -22,21 +22,28 @@ const getLocations = async (req, res, next) => {
     if (types) conditions.push(`(types,like,%${types}%)`);
     if (hasMarker === 'true') conditions.push('(marker,eq,true)');
     if (hasMarker === 'false') conditions.push('(marker,eq,false)');
-    
+
     const where = conditions.length > 0 ? conditions.join('~and') : '';
+
+    // Check if sorting by rating (calculated field - need client-side sort)
+    const isRatingSort = sort === 'rating' || sort === 'calculated_rating';
+
+    // If sorting by rating, fetch all records for client-side sorting
+    const fetchLimit = isRatingSort ? 1000 : parseInt(limit);
+    const fetchPage = isRatingSort ? 1 : parseInt(page);
     
-    // Build sort string (default: ascending by Id)
-    const sortStr = order === 'desc' ? `-${sort}` : sort;
+    // For non-rating sorts, use NocoDB native sorting
+    const sortStr = isRatingSort ? 'Id' : (order === 'desc' ? `-${sort}` : sort);
 
     const result = await nocodbService.getRecords('locations', {
-      page: parseInt(page),
-      limit: parseInt(limit),
+      page: fetchPage,
+      limit: fetchLimit,
       where,
       sort: sortStr,
     });
 
     // Transform data for frontend display
-    const transformedList = (result.list || []).map(loc => ({
+    let transformedList = (result.list || []).map(loc => ({
       ...loc,
       types_display: transformService.arrayToComma(loc.types),
       images_display: transformService.arrayToNewline(loc.images),
@@ -46,7 +53,43 @@ const getLocations = async (req, res, next) => {
       review_count: transformService.parseJsonSafe(loc.reviews, []).length,
     }));
 
-    res.json({ success: true, data: { list: transformedList, pageInfo: result.pageInfo } });
+    // If sorting by rating, apply client-side sorting with secondary sort
+    if (isRatingSort) {
+      transformedList.sort((a, b) => {
+        // Primary sort: by calculated_rating
+        const ratingDiff = (a.calculated_rating || 0) - (b.calculated_rating || 0);
+        if (ratingDiff !== 0) {
+          return order === 'desc' ? -ratingDiff : ratingDiff;
+        }
+        // Secondary sort: by review_count (more reviews = higher priority)
+        const countDiff = (a.review_count || 0) - (b.review_count || 0);
+        if (countDiff !== 0) {
+          return order === 'desc' ? -countDiff : countDiff;
+        }
+        // Tertiary sort: by Id
+        return order === 'desc' ? b.Id - a.Id : a.Id - b.Id;
+      });
+
+      // Apply pagination after sorting
+      const startIndex = (parseInt(page) - 1) * parseInt(limit);
+      const paginatedList = transformedList.slice(startIndex, startIndex + parseInt(limit));
+      
+      res.json({ 
+        success: true, 
+        data: { 
+          list: paginatedList, 
+          pageInfo: { 
+            totalRows: transformedList.length, 
+            page: parseInt(page), 
+            pageSize: parseInt(limit),
+            isFirstPage: parseInt(page) === 1,
+            isLastPage: startIndex + parseInt(limit) >= transformedList.length
+          } 
+        } 
+      });
+    } else {
+      res.json({ success: true, data: { list: transformedList, pageInfo: result.pageInfo } });
+    }
   } catch (error) { next(error); }
 };
 

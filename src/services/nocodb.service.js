@@ -43,15 +43,17 @@ class NocoDBService {
     return response.data;
   }
 
+  // NocoDB v2 API: PATCH to /records with Id in request body
   async updateRecord(tableName, id, data) {
-    const url = this.getTableUrl(tableName) + '/' + id;
-    const response = await this.client.patch(url, data);
+    const url = this.getTableUrl(tableName);
+    const response = await this.client.patch(url, { Id: parseInt(id), ...data });
     return response.data;
   }
 
+  // NocoDB v2 API: DELETE to /records with array of {Id} in request body
   async deleteRecord(tableName, id) {
-    const url = this.getTableUrl(tableName) + '/' + id;
-    const response = await this.client.delete(url);
+    const url = this.getTableUrl(tableName);
+    const response = await this.client.delete(url, { data: [{ Id: parseInt(id) }] });
     return response.data;
   }
 
