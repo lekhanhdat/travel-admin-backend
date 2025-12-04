@@ -1,0 +1,18 @@
+const express = require('express');
+const router = express.Router();
+
+const authRoutes = require('./auth.routes');
+const dashboardRoutes = require('./dashboard.routes');
+const locationsRoutes = require('./locations.routes');
+
+// Health check endpoint
+router.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Mount routes
+router.use('/auth', authRoutes);
+router.use('/dashboard', dashboardRoutes);
+router.use('/locations', locationsRoutes);
+
+module.exports = router;
