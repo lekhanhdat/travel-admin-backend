@@ -31,43 +31,6 @@ class NocoDBService {
     return response.data;
   }
 
-  // Fetch ALL records across all pages (NocoDB enforces max 100 per request)
-  async getAllRecords(tableName, options = {}) {
-    const { where = '', sort = '', fields = '' } = options;
-    const url = this.getTableUrl(tableName);
-    const pageSize = 100; // NocoDB max page size
-    let allRecords = [];
-    let offset = 0;
-    let hasMore = true;
-
-    while (hasMore) {
-      const params = { offset, limit: pageSize };
-      if (where) params.where = where;
-      if (sort) params.sort = sort;
-      if (fields) params.fields = fields;
-
-      const response = await this.client.get(url, { params });
-      const data = response.data;
-      const records = data.list || [];
-      allRecords = allRecords.concat(records);
-
-      // Check if there are more pages
-      hasMore = !data.pageInfo.isLastPage && records.length === pageSize;
-      offset += pageSize;
-    }
-
-    return {
-      list: allRecords,
-      pageInfo: {
-        totalRows: allRecords.length,
-        page: 1,
-        pageSize: allRecords.length,
-        isFirstPage: true,
-        isLastPage: true
-      }
-    };
-  }
-
   async getRecordById(tableName, id) {
     const url = this.getTableUrl(tableName) + '/' + id;
     const response = await this.client.get(url);

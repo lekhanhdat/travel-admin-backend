@@ -15,7 +15,7 @@ const calculateAverageRating = (reviewsJson) => {
 const getLocations = async (req, res, next) => {
   try {
     const { page = 1, limit = 10, search = '', sort = 'Id', order = 'asc', types = '', hasMarker = '' } = req.query;
-
+    
     // Build where clause
     const conditions = [];
     if (search) conditions.push(`(name,like,%${search}%)`);
@@ -28,20 +28,19 @@ const getLocations = async (req, res, next) => {
     // Check if sorting by rating (calculated field - need client-side sort)
     const isRatingSort = sort === 'rating' || sort === 'calculated_rating';
 
-    let result;
-    if (isRatingSort) {
-      // For rating sort, fetch ALL records (NocoDB enforces max 100 per request)
-      result = await nocodbService.getAllRecords('locations', { where, sort: 'Id' });
-    } else {
-      // For non-rating sorts, use NocoDB native sorting with pagination
-      const sortStr = order === 'desc' ? `-${sort}` : sort;
-      result = await nocodbService.getRecords('locations', {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        where,
-        sort: sortStr,
-      });
-    }
+    // If sorting by rating, fetch all records for client-side sorting
+    const fetchLimit = isRatingSort ? 1000 : parseInt(limit);
+    const fetchPage = isRatingSort ? 1 : parseInt(page);
+    
+    // For non-rating sorts, use NocoDB native sorting
+    const sortStr = isRatingSort ? 'Id' : (order === 'desc' ? `-${sort}` : sort);
+
+    const result = await nocodbService.getRecords('locations', {
+      page: fetchPage,
+      limit: fetchLimit,
+      where,
+      sort: sortStr,
+    });
 
     // Transform data for frontend display
     let transformedList = (result.list || []).map(loc => ({
@@ -74,19 +73,19 @@ const getLocations = async (req, res, next) => {
       // Apply pagination after sorting
       const startIndex = (parseInt(page) - 1) * parseInt(limit);
       const paginatedList = transformedList.slice(startIndex, startIndex + parseInt(limit));
-
-      res.json({
-        success: true,
-        data: {
-          list: paginatedList,
-          pageInfo: {
-            totalRows: transformedList.length,
-            page: parseInt(page),
+      
+      res.json({ 
+        success: true, 
+        data: { 
+          list: paginatedList, 
+          pageInfo: { 
+            totalRows: transformedList.length, 
+            page: parseInt(page), 
             pageSize: parseInt(limit),
             isFirstPage: parseInt(page) === 1,
             isLastPage: startIndex + parseInt(limit) >= transformedList.length
-          }
-        }
+          } 
+        } 
       });
     } else {
       res.json({ success: true, data: { list: transformedList, pageInfo: result.pageInfo } });
