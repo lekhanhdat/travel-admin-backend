@@ -1,4 +1,4 @@
-require('dotenv').config();
+﻿require('dotenv').config();
 
 module.exports = {
   port: process.env.PORT || 3001,
@@ -11,7 +11,8 @@ module.exports = {
       accounts: process.env.ACCOUNTS_TABLE_ID || 'mad8fvjhd0ba1bk',
       locations: process.env.LOCATIONS_TABLE_ID || 'mfz84cb0t9a84jt',
       festivals: process.env.FESTIVALS_TABLE_ID || 'mktzgff8mpu2c32',
-      items: process.env.ITEMS_TABLE_ID || 'mj77cy6909ll2wc',
+      objects: process.env.OBJECTS_TABLE_ID || 'mj77cy6909ll2wc',
+      transactions: process.env.TRANSACTIONS_TABLE_ID || 'md6twc3losjv4j3',
     },
   },
   jwt: {

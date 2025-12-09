@@ -11,15 +11,16 @@ const calculateAverageRating = (reviewsJson) => {
   } catch { return 0; }
 };
 
-// Get unique location types for filter dropdown
-const getLocationTypes = async (req, res, next) => {
+// Get unique festival types for filter dropdown
+const getFestivalTypes = async (req, res, next) => {
   try {
-    const result = await nocodbService.getRecords('locations', { page: 1, limit: 1000, fields: 'Id,types' });
+    const result = await nocodbService.getRecords('festivals', { page: 1, limit: 1000, fields: 'Id,types' });
     const allTypes = new Set();
     
-    (result.list || []).forEach(location => {
+    (result.list || []).forEach(festival => {
+      // types field is a JSON array string like '["cultural", "traditional"]'
       try {
-        const types = JSON.parse(location.types || '[]');
+        const types = JSON.parse(festival.types || '[]');
         if (Array.isArray(types)) {
           types.forEach(type => {
             if (type && typeof type === 'string') {
@@ -28,7 +29,8 @@ const getLocationTypes = async (req, res, next) => {
           });
         }
       } catch {
-        const types = (location.types || '').split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
+        // If not JSON, try comma-separated
+        const types = (festival.types || '').split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
         types.forEach(type => allTypes.add(type));
       }
     });
@@ -38,16 +40,14 @@ const getLocationTypes = async (req, res, next) => {
   } catch (error) { next(error); }
 };
 
-// Get all locations with pagination, sorting, and filtering
-const getLocations = async (req, res, next) => {
+// Get all festivals with pagination, sorting, and filtering
+const getFestivals = async (req, res, next) => {
   try {
-    const { page = 1, limit = 10, search = '', sort = 'Id', order = 'asc', types = '', hasMarker = '' } = req.query;
+    const { page = 1, limit = 10, search = '', sort = 'Id', order = 'asc', types = '' } = req.query;
 
     const conditions = [];
     if (search) conditions.push(`(name,like,%${search}%)`);
     if (types) conditions.push(`(types,like,%${types}%)`);
-    if (hasMarker === 'true') conditions.push('(marker,eq,true)');
-    if (hasMarker === 'false') conditions.push('(marker,eq,false)');
 
     const where = conditions.length > 0 ? conditions.join('~and') : '';
     const isRatingSort = sort === 'rating' || sort === 'calculated_rating';
@@ -55,21 +55,20 @@ const getLocations = async (req, res, next) => {
     const fetchPage = isRatingSort ? 1 : parseInt(page);
     const sortStr = isRatingSort ? 'Id' : (order === 'desc' ? `-${sort}` : sort);
 
-    const result = await nocodbService.getRecords('locations', {
+    const result = await nocodbService.getRecords('festivals', {
       page: fetchPage,
       limit: fetchLimit,
       where,
       sort: sortStr,
     });
 
-    let transformedList = (result.list || []).map(loc => ({
-      ...loc,
-      types_display: transformService.arrayToComma(loc.types),
-      images_display: transformService.arrayToNewline(loc.images),
-      videos_display: transformService.arrayToNewline(loc.videos),
-      advise_display: transformService.arrayToNewline(loc.advise),
-      calculated_rating: calculateAverageRating(loc.reviews),
-      review_count: transformService.parseJsonSafe(loc.reviews, []).length,
+    let transformedList = (result.list || []).map(festival => ({
+      ...festival,
+      types_display: transformService.arrayToComma(festival.types),
+      images_display: transformService.arrayToNewline(festival.images),
+      videos_display: transformService.arrayToNewline(festival.videos),
+      calculated_rating: calculateAverageRating(festival.reviews),
+      review_count: transformService.parseJsonSafe(festival.reviews, []).length,
     }));
 
     if (isRatingSort) {
@@ -97,53 +96,47 @@ const getLocations = async (req, res, next) => {
   } catch (error) { next(error); }
 };
 
-// Get single location by ID
-const getLocationById = async (req, res, next) => {
+// Get single festival by ID
+const getFestivalById = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const location = await nocodbService.getRecordById('locations', id);
-    if (!location) return res.status(404).json({ success: false, message: 'Location not found' });
+    const festival = await nocodbService.getRecordById('festivals', id);
+    if (!festival) return res.status(404).json({ success: false, message: 'Festival not found' });
 
     const transformed = {
-      ...location,
-      types_display: transformService.arrayToComma(location.types),
-      images_display: transformService.arrayToNewline(location.images),
-      videos_display: transformService.arrayToNewline(location.videos),
-      advise_display: transformService.arrayToNewline(location.advise),
-      calculated_rating: calculateAverageRating(location.reviews),
+      ...festival,
+      types_display: transformService.arrayToComma(festival.types),
+      images_display: transformService.arrayToNewline(festival.images),
+      videos_display: transformService.arrayToNewline(festival.videos),
+      calculated_rating: calculateAverageRating(festival.reviews),
     };
     res.json({ success: true, data: transformed });
   } catch (error) { next(error); }
 };
 
-// Create new location
-const createLocation = async (req, res, next) => {
+// Create new festival
+const createFestival = async (req, res, next) => {
   try {
     const data = req.body;
     const transformed = {
       name: data.name,
       types: transformService.commaToArray(data.types),
       description: data.description || '',
-      long_description: data.long_description || '',
-      address: data.address || '',
-      lat: parseFloat(data.lat) || 0,
-      long: parseFloat(data.long) || 0,
-      phone: data.phone || '',
-      website: data.website || '',
-      opening_hours: data.opening_hours || '',
+      event_time: data.event_time || '',
+      location: data.location || '',
+      price_level: parseInt(data.price_level) || 1,
       images: transformService.newlineToArray(data.images),
       videos: transformService.newlineToArray(data.videos),
-      advise: transformService.newlineToArray(data.advise),
-      marker: data.marker !== false,
+      advise: data.advise || '',
       reviews: '[]',
     };
-    const result = await nocodbService.createRecord('locations', transformed);
+    const result = await nocodbService.createRecord('festivals', transformed);
     res.status(201).json({ success: true, data: result });
   } catch (error) { next(error); }
 };
 
-// Update location
-const updateLocation = async (req, res, next) => {
+// Update festival
+const updateFestival = async (req, res, next) => {
   try {
     const { id } = req.params;
     const data = req.body;
@@ -151,40 +144,25 @@ const updateLocation = async (req, res, next) => {
       name: data.name,
       types: transformService.commaToArray(data.types),
       description: data.description || '',
-      long_description: data.long_description || '',
-      address: data.address || '',
-      lat: parseFloat(data.lat) || 0,
-      long: parseFloat(data.long) || 0,
-      phone: data.phone || '',
-      website: data.website || '',
-      opening_hours: data.opening_hours || '',
+      event_time: data.event_time || '',
+      location: data.location || '',
+      price_level: parseInt(data.price_level) || 1,
       images: transformService.newlineToArray(data.images),
       videos: transformService.newlineToArray(data.videos),
-      advise: transformService.newlineToArray(data.advise),
-      marker: data.marker !== false,
+      advise: data.advise || '',
     };
-    const result = await nocodbService.updateRecord('locations', id, transformed);
+    const result = await nocodbService.updateRecord('festivals', id, transformed);
     res.json({ success: true, data: result });
   } catch (error) { next(error); }
 };
 
-// Delete location
-const deleteLocation = async (req, res, next) => {
+// Delete festival
+const deleteFestival = async (req, res, next) => {
   try {
     const { id } = req.params;
-    await nocodbService.deleteRecord('locations', id);
-    res.json({ success: true, message: 'Location deleted successfully' });
+    await nocodbService.deleteRecord('festivals', id);
+    res.json({ success: true, message: 'Festival deleted successfully' });
   } catch (error) { next(error); }
 };
 
-// Toggle marker visibility
-const toggleMarker = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const { marker } = req.body;
-    const result = await nocodbService.updateRecord('locations', id, { marker });
-    res.json({ success: true, data: result });
-  } catch (error) { next(error); }
-};
-
-module.exports = { getLocations, getLocationById, getLocationTypes, createLocation, updateLocation, deleteLocation, toggleMarker };
+module.exports = { getFestivals, getFestivalById, getFestivalTypes, createFestival, updateFestival, deleteFestival };
