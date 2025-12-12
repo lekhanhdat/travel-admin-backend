@@ -31,11 +31,13 @@ app.use('/api', routes);
 // Error handling
 app.use(errorMiddleware);
 
-// Start server
-const PORT = config.port;
-app.listen(PORT, () => {
-  console.log('Travel Admin Backend running on port ' + PORT);
-  console.log('Environment: ' + (process.env.NODE_ENV || 'development'));
-});
+// Only start the server if running locally (not in serverless environment)
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  const PORT = config.port;
+  app.listen(PORT, () => {
+    console.log('Travel Admin Backend running on port ' + PORT);
+    console.log('Environment: ' + (process.env.NODE_ENV || 'development'));
+  });
+}
 
 module.exports = app;
