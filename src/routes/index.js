@@ -8,6 +8,7 @@ const festivalsRoutes = require('./festivals.routes');
 const reviewsRoutes = require('./reviews.routes');
 const usersRoutes = require('./users.routes');
 const objectsRoutes = require('./objects.routes');
+const objectivesRoutes = require('./objectives.routes');
 const transactionsRoutes = require('./transactions.routes');
 
 // Health check endpoint
@@ -23,6 +24,7 @@ router.use('/festivals', festivalsRoutes);
 router.use('/reviews', reviewsRoutes);
 router.use('/users', usersRoutes);
 router.use('/objects', objectsRoutes);
+router.use('/objectives', objectivesRoutes);
 router.use('/transactions', transactionsRoutes);
 
 module.exports = router;

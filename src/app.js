@@ -25,6 +25,27 @@ app.use(express.urlencoded({ extended: true }));
 // Logging
 app.use(loggerMiddleware);
 
+// Root route - API info
+app.get('/', (req, res) => {
+  res.json({
+    name: 'Travel Admin Backend API',
+    version: '1.0.0',
+    status: 'running',
+    endpoints: {
+      health: '/api/health',
+      auth: '/api/auth',
+      dashboard: '/api/dashboard',
+      locations: '/api/locations',
+      festivals: '/api/festivals',
+      users: '/api/users',
+      reviews: '/api/reviews',
+      transactions: '/api/transactions',
+      objects: '/api/objects',
+      objectives: '/api/objectives',
+    },
+  });
+});
+
 // API routes
 app.use('/api', routes);
 
