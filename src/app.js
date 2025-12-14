@@ -1,7 +1,8 @@
-require('dotenv').config();
+﻿require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const config = require('./config');
 const routes = require('./routes');
 const errorMiddleware = require('./middlewares/error.middleware');
@@ -21,6 +22,19 @@ app.use(cors({
 // Body parsing
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Rate limiting - prevent overwhelming NocoDB with requests
+const apiLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute window
+  max: 60, // 60 requests per minute
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many requests, please try again later',
+  },
+});
+app.use('/api', apiLimiter);
 
 // Logging
 app.use(loggerMiddleware);
